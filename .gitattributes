@@ -1,0 +1,9 @@
+# Нормализация переводов строк для кроссплатформенного репозитория
+* text=auto
+
+*.c        text eol=lf diff=cpp
+*.h        text eol=lf diff=cpp
+*.md       text eol=lf diff=markdown
+Makefile   text eol=lf
+
+*.json     text eol=lf
