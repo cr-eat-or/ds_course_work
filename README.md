@@ -2,6 +2,8 @@
 
 Реализация на **C11**: два буфера поля, пошаговая эволюция по правилам Конвея, учёт **циклов** в истории конфигураций, **шаблоны** (статические паттерны), консольный интерфейс с отрисовкой поля (UTF-8, рамки Box Drawing). Точка входа — **`src/main.c`** (интерактивный ввод с клавиатуры); ядро симуляции и тесты не зависят от консоли.
 
+**Платформа:** консоль собирается и на **Windows** (**MinGW-w64** / **w64devkit**), и на **Linux** / **macOS** (**GCC** + **GNU Make**). Пауза между кадрами: на Windows — `Sleep`, на POSIX — `nanosleep`. Терминал с **UTF-8** нужен везде для корректных рамок и символов клеток.
+
 ## Схема каталогов
 
 | Каталог | Назначение |
@@ -11,16 +13,19 @@
 | `tests/unit/` | Юнит-тесты модулей; общая точка входа — `test_main.c`. |
 | `tests/include/` | Вспомогательные заголовки для тестов (`test_helpers.h`). |
 | `build/` | Собранные исполняемые файлы после `make` (не коммитить). |
-| `.vscode/` | `launch.json` и `tasks.json` для отладки в VS Code / Cursor (**GDB**, задача `make (debug)`). |
+| `.vscode/` | `launch.json` и `tasks.json` для отладки в VS Code (**GDB**, задача `make (debug)`). |
+| `Dockerfile` | Образ с **GCC** + **make**: при сборке — консоль + тесты и прогон **`test.exe`** (см. ниже). |
 
 ## Сборка
 
 Нужны **GCC** и **GNU Make**.
 
 ```sh
-make all       # main.exe и test.exe
+make all       # консоль + test.exe (на Windows: build/main.exe; на Linux/macOS: build/main)
+make main      # только консоль (то же имя, что выше)
 make test      # только пересобрать test.exe (если менялись тесты)
-make clean     # удалить каталог build/ 
+make tests     # то же, что make test
+make clean     # удалить каталог build/
 ```
 
 **Отладочная сборка** (символы для GDB: `-g`, без оптимизаций: `-O0`):
@@ -32,7 +37,7 @@ make DEBUG=1 all
 
 Без `DEBUG=1` эти флаги к `CFLAGS` не добавляются (см. верх `Makefile`).
 
-### VS Code / Cursor
+### VS Code
 
 В **`.vscode/`**:
 
@@ -43,8 +48,8 @@ make DEBUG=1 all
 
 | Цель `make` | Исполняемый файл |
 | ----------- | ---------------- |
-| `all` | `build/main.exe` |
-| `all` | `build/test.exe` |
+| `all`, `main` | `build/main.exe` (Windows) или `build/main` (Linux/macOS) |
+| `test`, `tests` | `build/test.exe` |
 
 ## Запуск программы
 
@@ -52,6 +57,12 @@ make DEBUG=1 all
 
 ```sh
 ./build/main.exe
+```
+
+На **Linux** / **macOS** после `make all`:
+
+```sh
+./build/main
 ```
 
 Консоль желательно перевести в **UTF-8** (корректное отображение рамки и символов клеток `██` / `[]`). Размер поля по умолчанию задаётся в `main.c` константами **`WIDTH`** и **`HEIGHT`** (32×32).
@@ -85,6 +96,34 @@ make tests
 
 При успехе в консоли: **`All tests passed.`**
 
+## Docker
+
+Нужны установленные **Docker Desktop** (Windows/macOS) или **Docker Engine** (Linux).
+
+Сборка образа из корня репозитория:
+
+```sh
+docker build -t ds-course-work .
+```
+
+Запуск тестов в контейнере (после сборки образа команда по умолчанию — тот же бинарник):
+
+```sh
+docker run --rm ds-course-work
+```
+
+Интерактивная консоль в контейнере (нужен терминал **`it`**):
+
+```sh
+docker run --rm -it ds-course-work ./build/main
+```
+
+Интерактивно пересобрать **уже смонтированный** каталог с хоста
+
+```sh
+docker run --rm -it -v "${PWD}:/app" -w /app --entrypoint bash ds-course-work -c "make clean && make all && ./build/test"
+```
+
 ## Makefile
 
-Сборка **без промежуточных `.o`**: один вызов `gcc` на цель **`main.exe`** и один на **`test.exe`**. Списки исходников ядра и тестов заданы переменными **`CORE`** и **`TEST`** в `Makefile`. Флаг **`DEBUG=1`** добавляет к `CFLAGS` опции **`-g -O0`**.
+Сборка **без промежуточных `.o`**: отдельные вызовы `gcc` на консоль и на **`test.exe`**. Имя консольного файла на Unix — **`build/main`**, на Windows — **`build/main.exe`**. Списки исходников ядра и тестов — **`CORE`** и **`TEST`**. Флаг **`DEBUG=1`** добавляет к `CFLAGS` **`-g -O0`**.

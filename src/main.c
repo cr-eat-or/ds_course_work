@@ -1,6 +1,9 @@
 /*
  * Консольное приложение Жизнь: два буфера поля, пошаговая эволюция, ввод команд.
  */
+#ifndef _WIN32
+#define _POSIX_C_SOURCE 200809L
+#endif
 #include "cycle.h"
 #include "grid.h"
 #include "life.h"
@@ -10,7 +13,13 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+
+#ifdef _WIN32
 #include <windows.h>
+#else
+#include <errno.h>
+#include <time.h>
+#endif
 
 /* Размер поля по умолчанию */
 #define WIDTH 32
@@ -26,12 +35,23 @@
 /* Буфер одного кадра: один fwrite вместо множества printf. */
 #define FRAME_BUF_CAP (64 * 1024)
 
-/* Пауза между анимированными кадрами (WinAPI). */
+/* Пауза между анимированными кадрами (Windows: Sleep; POSIX: nanosleep). */
 static void sleep_ms(unsigned ms) {
     if (ms == 0u) {
         return;
     }
+#ifdef _WIN32
     Sleep((DWORD)ms);
+#else
+    {
+        struct timespec ts;
+        ts.tv_sec = (time_t)(ms / 1000u);
+        ts.tv_nsec = (long)((ms % 1000u) * 1000000u);
+        while (nanosleep(&ts, &ts) != 0 && errno == EINTR) {
+            /* остаток в ts; повтор при сигнале */
+        }
+    }
+#endif
 }
 
 static size_t frame_put(char *buf, size_t cap, size_t pos, const char *fmt, ...) {
